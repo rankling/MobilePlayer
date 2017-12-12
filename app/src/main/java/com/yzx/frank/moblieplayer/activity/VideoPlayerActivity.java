@@ -15,6 +15,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import com.yzx.frank.moblieplayer.view.VideoView;
@@ -34,6 +35,7 @@ import java.util.ArrayList;
 
 public class VideoPlayerActivity extends BaseActivity {
 
+
     private VideoView videoView;
     private VideoItem videoItem;
     private TextView  tv_title;
@@ -51,6 +53,8 @@ public class VideoPlayerActivity extends BaseActivity {
     private static final int SHOW_SYSTEM_TIME = 0;
     /** 更新插入进度*/
     private static final int UPDATE_PLAY_PROGRESS = 1;
+    /** 隐藏控制面板*/
+    private static final int HIDE_CTRL_LAYOUT = 2;
 
     private Handler handler = new Handler() {
         @Override
@@ -62,6 +66,8 @@ public class VideoPlayerActivity extends BaseActivity {
                 case UPDATE_PLAY_PROGRESS:
                     updatePlayProgress();
                     break;
+                case HIDE_CTRL_LAYOUT:
+                    showOrHideCtrlLayout();
                 default:
                     break;
 
@@ -95,7 +101,7 @@ public class VideoPlayerActivity extends BaseActivity {
          */
         @Override
         public void onStartTrackingTouch(SeekBar seekBar) {
-
+            cancelHideCtrlLayoutMsg();
         }
 
         /**
@@ -104,7 +110,7 @@ public class VideoPlayerActivity extends BaseActivity {
          */
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
-
+            sendHideCtrlLayoutMsg();
         }
     };
     private int currentVolume;
@@ -113,6 +119,10 @@ public class VideoPlayerActivity extends BaseActivity {
     private float currentAlpha;
     private ArrayList<VideoItem> videoItems;
     private int currentPosition;
+    private int ll_top_ctrlHeight;
+    private int ll_bottom_ctrlHeight;
+    private LinearLayout ll_top_ctrl;
+    private LinearLayout ll_bottom_ctrl;
 
     /**
      * 设置SeekBar的音量值
@@ -150,6 +160,26 @@ public class VideoPlayerActivity extends BaseActivity {
         float alpha = 0.0f;
         setBrightness(alpha);
         showSystemTime();
+        initCtrlLayout();
+    }
+
+    /**
+     * 初始化控制面板
+     */
+    private void initCtrlLayout() {
+        ll_top_ctrl     = findView(R.id.ll_top_ctrl);
+        ll_bottom_ctrl  = findView(R.id.ll_bottom_ctrl);
+
+        //顶部控制栏的隐藏：Y方向移动控件的高度的负数
+        ll_top_ctrl.measure(0,0);
+        ll_top_ctrlHeight = ll_top_ctrl.getMeasuredHeight();
+        Logger.d(this, "ll_top_ctrlHeight: "+ll_top_ctrlHeight);
+        ll_top_ctrl.setTranslationY(-ll_top_ctrlHeight);
+        //底部控制栏的隐藏：Y方向移动控件的高度
+        ll_bottom_ctrl.measure(0,0);
+        ll_bottom_ctrlHeight = ll_bottom_ctrl.getMeasuredHeight();
+        Logger.d(this, "ll_bottom_ctrl: "+ll_bottom_ctrlHeight);
+        ll_bottom_ctrl.setTranslationY(ll_bottom_ctrlHeight);
     }
 
     /**
@@ -227,6 +257,7 @@ public class VideoPlayerActivity extends BaseActivity {
         @Override
         public void onStartTrackingTouch(SeekBar seekBar) {
 
+            cancelHideCtrlLayoutMsg();
         }
         /**
          * 停止拖动SeekBar
@@ -234,7 +265,7 @@ public class VideoPlayerActivity extends BaseActivity {
          */
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
-
+            sendHideCtrlLayoutMsg();
         }
     };
 
@@ -245,6 +276,7 @@ public class VideoPlayerActivity extends BaseActivity {
         openVideo();
         registerBatteryChangeReceiver();
         initVoice();
+
     }
 
     private void openVideo() {
@@ -357,6 +389,7 @@ public class VideoPlayerActivity extends BaseActivity {
 
     @Override
     public void onClick(View view, int id) {
+        cancelHideCtrlLayoutMsg();
         switch (id) {
             case R.id.btn_voice:             //静音按钮
                 mute();
@@ -368,7 +401,7 @@ public class VideoPlayerActivity extends BaseActivity {
                 preVideoItem();
                 break;
             case R.id.btn_play:             //播放按钮
-                showToast("播放");
+                play();
                 break;
             case R.id.btn_next:             //下一首按钮
                 nextVideoItem();
@@ -380,6 +413,33 @@ public class VideoPlayerActivity extends BaseActivity {
                 break;
         }
 
+        sendHideCtrlLayoutMsg();
+    }
+
+    /**
+     * 播放或者暂停按钮
+     */
+    private void play() {
+        if(videoView.isPlaying()) {
+            videoView.pause();
+        } else {
+
+            videoView.start();
+        }
+        updatePlayBtnBg();
+    }
+
+    /**
+     * 更新播放暂停按钮背景
+     */
+    private void updatePlayBtnBg() {
+        int resId;
+        if(videoView.isPlaying()) {
+            resId = R.drawable.selector_btn_pause;
+        } else {
+            resId = R.drawable.selector_btn_play;
+        }
+        btn_play.setBackgroundResource(resId);
     }
 
     /**
@@ -450,8 +510,11 @@ public class VideoPlayerActivity extends BaseActivity {
             = new MediaPlayer.OnPreparedListener() {
         @Override
         public void onPrepared(MediaPlayer mediaPlayer) {
+
+            updatePlayBtnBg();//更新播放按钮图片
             videoView.start();
             tv_title.setText(videoItem.getTitle());
+
             //显示视频总时长
             tv_total_duration.setText(Utils.formatMilliSeconds(videoView.getDuration()));
             sb_video.setMax(videoView.getDuration());//设置SeekBar总进度
@@ -479,7 +542,9 @@ public class VideoPlayerActivity extends BaseActivity {
 
         @Override
         public void onLongPress(MotionEvent e) {
-            super.onLongPress(e);
+            //btn_play.performClick();//用代码的方式点击这个按钮
+            //onClick(btn_play);
+            play();
         }
 
         @Override
@@ -520,20 +585,46 @@ public class VideoPlayerActivity extends BaseActivity {
 
         @Override
         public boolean onSingleTapConfirmed(MotionEvent e) {
-            return super.onSingleTapConfirmed(e);
+
+            showOrHideCtrlLayout();
+            return true;
         }
     };
+
+    /**
+     * 显示或者隐藏控制面板
+     */
+    private void showOrHideCtrlLayout() {
+        if(ll_top_ctrl.getTranslationY() == 0) {
+            //如果控制面板原来是显示的，则隐藏
+            ll_top_ctrl.animate().translationY(-ll_top_ctrl.getHeight());
+            ll_bottom_ctrl.animate().translationY(ll_bottom_ctrl.getHeight());
+        }else {
+            //如果控制面板原来是隐藏的，则显示
+            ll_top_ctrl.animate().translationY(0);
+            ll_bottom_ctrl.animate().translationY(0);
+            sendHideCtrlLayoutMsg();
+        }
+    }
+
+    /**
+     * 发送隐藏控制面板的消息（5秒钟之后执行）
+     */
+    private void sendHideCtrlLayoutMsg() {
+        cancelHideCtrlLayoutMsg();
+        handler.sendEmptyMessageDelayed(HIDE_CTRL_LAYOUT,5000);
+    }
 
     /**
      * 根据移动屏幕的距离改变屏幕亮度值
      * @param distanceY
      */
     private void changeBrightness(float distanceY) {
-       /**
-        * 本实现方法是在布局文档中加入一个View， 然后使用View的透明度Alpha
-        * 来模拟亮度的改变， 在实际的编程中， 我们需要使用系统的改变亮度的方法
-        * 直接调用就可以
-        */
+        /**
+         * 本实现方法是在布局文档中加入一个View， 然后使用View的透明度Alpha
+         * 来模拟亮度的改变， 在实际的编程中， 我们需要使用系统的改变亮度的方法
+         * 直接调用就可以
+         */
 
         Logger.i(VideoPlayerActivity.this, "distanceYY = " +distanceY);
         // 1. onTouchEvent (处理触摸事件)
@@ -598,6 +689,23 @@ public class VideoPlayerActivity extends BaseActivity {
         //把触摸事件传给手势监听器
         boolean result = gestureDetector.onTouchEvent(event);
 
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                cancelHideCtrlLayoutMsg();
+                break;
+            case MotionEvent.ACTION_UP:
+                sendHideCtrlLayoutMsg();
+                break;
+            default:
+                break;
+        }
         return result;
+    }
+
+    /**
+     * 取消隐藏控制面板的消息
+     */
+    private void cancelHideCtrlLayoutMsg() {
+        handler.removeMessages(HIDE_CTRL_LAYOUT);
     }
 }
