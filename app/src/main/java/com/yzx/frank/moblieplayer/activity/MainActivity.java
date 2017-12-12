@@ -1,12 +1,12 @@
 package com.yzx.frank.moblieplayer.activity;
 
 import android.support.v4.app.Fragment;
+import android.support.v4.view.ViewCompat;
 import android.support.v4.view.ViewPager;
 import android.view.View;
 import android.widget.TextView;
 
 import com.nineoldandroids.view.ViewHelper;
-import com.nineoldandroids.view.ViewPropertyAnimator;
 import com.yzx.frank.moblieplayer.R;
 import com.yzx.frank.moblieplayer.adapter.MainAdapter;
 import com.yzx.frank.moblieplayer.fragment.AudioFragment;
@@ -150,8 +150,9 @@ public class MainActivity extends BaseActivity {
      * @param textView
      */
     private void scaleTitle(float scale, TextView textView) {
-
-        ViewPropertyAnimator.animate(textView).scaleX(scale).scaleY(scale);
+        ViewCompat.animate(textView)
+                .setDuration(200)
+                .scaleX(scale)
+                .scaleY(scale);
     }
-
 }

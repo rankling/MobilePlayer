@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
-    <VideoView
+    <com.yzx.frank.moblieplayer.view.VideoView
         android:id="@+id/video_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -23,17 +23,20 @@
             android:paddingLeft="4dp"
             android:paddingRight="4dp">
             <TextView
+                android:id="@+id/tv_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
                 android:textColor="@android:color/white"
                 android:text="3_oppo"
                 android:layout_weight="1"/>
-            <TextView
+            <ImageView
+                android:id="@+id/iv_system_battery"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/ic_battery_10"/>
             <TextView
+                android:id="@+id/tv_system_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
@@ -55,6 +58,7 @@
                 android:layout_height="wrap_content"
                 android:background="@drawable/selector_btn_voice"/>
             <SeekBar
+                android:id="@+id/sb_voice"
                 style="@android:style/Widget.SeekBar"
                 android:progressDrawable="@drawable/progress_horizontal"
                 android:minHeight="5dp"
@@ -93,11 +97,13 @@
             android:background="@drawable/bg_player_bottom_control"
             android:gravity="center_vertical">
             <TextView
+                android:id="@+id/tv_current_position"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@android:color/white"
                 android:text="00:00"/>
             <SeekBar
+                android:id="@+id/sb_video"
                 style="@android:style/Widget.SeekBar"
                 android:progressDrawable="@drawable/progress_horizontal"
                 android:minHeight="5dp"
@@ -111,6 +117,8 @@
                 android:layout_marginRight="4dp"
                 android:layout_marginLeft="4dp"/>
             <TextView
+
+                android:id="@+id/tv_total_duration"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@android:color/white"
@@ -160,4 +168,10 @@
 
     </LinearLayout>
 
+    <View
+        android:id="@+id/view_brightness"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:visibility="gone"/>
 </RelativeLayout>
