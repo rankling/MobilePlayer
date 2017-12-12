@@ -1,11 +1,13 @@
 package com.yzx.frank.moblieplayer.activity;
 
+import android.animation.Animator;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.Message;
@@ -49,6 +51,15 @@ public class VideoPlayerActivity extends BaseActivity {
     private TextView tv_total_duration;
     private TextView tv_current_position;
     private TextView tv_system_time;
+    /** 常用的时间常量 单位是 毫秒 */
+    private static final int MILLISECOND_50      = 50;
+    private static final int MILLISECOND_100     = 100;
+    private static final int MILLISECOND_500     = 500;
+    private static final int MILLISECOND_1000    = 1000;
+
+
+
+
     /** 显示系统时间*/
     private static final int SHOW_SYSTEM_TIME = 0;
     /** 更新插入进度*/
@@ -123,6 +134,9 @@ public class VideoPlayerActivity extends BaseActivity {
     private int ll_bottom_ctrlHeight;
     private LinearLayout ll_top_ctrl;
     private LinearLayout ll_bottom_ctrl;
+    private Uri data;
+    private Uri videoUri;
+    private LinearLayout ll_loading;
 
     /**
      * 设置SeekBar的音量值
@@ -157,10 +171,13 @@ public class VideoPlayerActivity extends BaseActivity {
         view_brightness     =   findView(R.id.view_brightness);
         view_brightness.setVisibility(View.VISIBLE);
         btn_full_screen = findView(R.id.btn_full_screen);
+        ll_loading = findView(R.id.ll_loading);
+
         float alpha = 0.0f;
         setBrightness(alpha);
         showSystemTime();
         initCtrlLayout();
+
     }
 
     /**
@@ -199,7 +216,7 @@ public class VideoPlayerActivity extends BaseActivity {
         /**
          * 每一秒钟会更新一下时间
          */
-        handler.sendEmptyMessageDelayed(SHOW_SYSTEM_TIME, 1000);
+        handler.sendEmptyMessageDelayed(SHOW_SYSTEM_TIME, MILLISECOND_1000);
     }
 
     @Override
@@ -226,7 +243,7 @@ public class VideoPlayerActivity extends BaseActivity {
     }
 
     /**
-     * 视频插入完会回调这个监听器
+     * 视频播放完会回调这个监听器
      */
     MediaPlayer.OnCompletionListener mOnCompletionListener = new MediaPlayer.OnCompletionListener() {
         @Override
@@ -234,6 +251,7 @@ public class VideoPlayerActivity extends BaseActivity {
             videoView.seekTo(0);
             tv_current_position.setText(Utils.formatMilliSeconds(0));
             sb_video.setProgress(0);
+            updatePlayBtnBg();
         }
     };
 
@@ -271,9 +289,20 @@ public class VideoPlayerActivity extends BaseActivity {
 
     @Override
     public void initData() {
-        videoItems = (ArrayList<VideoItem>)getIntent().getSerializableExtra(Keys.ITEMS);
-        currentPosition = getIntent().getIntExtra(Keys.CURRENT_POSITION, -1);
-        openVideo();
+        videoUri = getIntent().getData();
+        if(videoUri != null){
+            //不为空说明是从第三方跳转过来的
+            videoView.setVideoURI(videoUri);
+            ll_loading.setVisibility(View.VISIBLE);
+            btn_pre.setEnabled(false);
+            btn_next.setEnabled(false);
+
+        }else {
+            //是从视频列表跳转过来的
+            videoItems = (ArrayList<VideoItem>) getIntent().getSerializableExtra(Keys.ITEMS);
+            currentPosition = getIntent().getIntExtra(Keys.CURRENT_POSITION, -1);
+            openVideo();
+        }
         registerBatteryChangeReceiver();
         initVoice();
 
@@ -284,6 +313,7 @@ public class VideoPlayerActivity extends BaseActivity {
             return ;
         }
 
+        ll_loading.setVisibility(View.VISIBLE);
         btn_pre.setEnabled(currentPosition !=0);
         btn_next.setEnabled(currentPosition != videoItems.size()-1);
 
@@ -468,6 +498,9 @@ public class VideoPlayerActivity extends BaseActivity {
      * 播放上一个视频节目
      */
     private void preVideoItem() {
+        if(videoItems == null) {
+            return;
+        }
         if(currentPosition != 0) {
             currentPosition --;
             openVideo();
@@ -511,17 +544,49 @@ public class VideoPlayerActivity extends BaseActivity {
         @Override
         public void onPrepared(MediaPlayer mediaPlayer) {
 
-            updatePlayBtnBg();//更新播放按钮图片
             videoView.start();
-            tv_title.setText(videoItem.getTitle());
 
+
+            if(videoUri != null) {
+                //从第三方应用跳转过来的
+                tv_title.setText(videoUri.getPath());
+            }else {
+                //是从列表跳转过来的
+                tv_title.setText(videoItem.getTitle());
+            }
             //显示视频总时长
             tv_total_duration.setText(Utils.formatMilliSeconds(videoView.getDuration()));
             sb_video.setMax(videoView.getDuration());//设置SeekBar总进度
+            updatePlayBtnBg();//更新播放按钮图片
             updatePlayProgress();
+            hideLoading();
         }
 
     };
+
+    /**
+     * 隐藏Loading界面,使用渐变的方法慢慢隐藏
+     */
+    private void hideLoading() {
+        ll_loading.animate()
+                .alpha(0.0f)
+                .setDuration(MILLISECOND_1000+MILLISECOND_500)
+                .setListener(new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        ll_loading.setVisibility(View.GONE);
+                        ll_loading.setAlpha(1.0f);
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {}
+                    @Override
+                    public void onAnimationRepeat(Animator animation) {}
+                    @Override
+                    public void onAnimationStart(Animator animation) {}
+                });
+
+    }
 
     /**
      * 更新播放进度
@@ -530,7 +595,7 @@ public class VideoPlayerActivity extends BaseActivity {
         tv_current_position.setText(
                 Utils.formatMilliSeconds(videoView.getCurrentPosition()));
         sb_video.setProgress(videoView.getCurrentPosition());
-        handler.sendEmptyMessageDelayed(UPDATE_PLAY_PROGRESS, 300);
+        handler.sendEmptyMessageDelayed(UPDATE_PLAY_PROGRESS, MILLISECOND_100<<2);
     }
 
 
@@ -612,7 +677,7 @@ public class VideoPlayerActivity extends BaseActivity {
      */
     private void sendHideCtrlLayoutMsg() {
         cancelHideCtrlLayoutMsg();
-        handler.sendEmptyMessageDelayed(HIDE_CTRL_LAYOUT,5000);
+        handler.sendEmptyMessageDelayed(HIDE_CTRL_LAYOUT,MILLISECOND_1000<<2);
     }
 
     /**
