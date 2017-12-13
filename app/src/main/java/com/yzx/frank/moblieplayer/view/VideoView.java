@@ -529,6 +529,10 @@ public class VideoView extends SurfaceView
                 }
             };
 
+    public void setOnBufferingUpdateListener(MediaPlayer.OnBufferingUpdateListener mBufferingUpdateListener) {
+        this.mBufferingUpdateListener = mBufferingUpdateListener;
+    }
+
     /**
      * Register a callback to be invoked when the media file
      * is loaded and ready to go.

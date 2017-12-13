@@ -138,6 +138,7 @@ public class VideoPlayerActivity extends BaseActivity {
     private Uri videoUri;
     private LinearLayout ll_loading;
 
+
     /**
      * 设置SeekBar的音量值
      * @param value
@@ -233,7 +234,9 @@ public class VideoPlayerActivity extends BaseActivity {
 
         videoView.setOnPreparedListener(mOnPreparedListener);
         videoView.setOnCompletionListener(mOnCompletionListener);
+        videoView.setOnBufferingUpdateListener(mOnBufferingUpdateListener);
 
+        videoView.setOnInfoListener(mOnInfoListener);
         sb_voice.setOnSeekBarChangeListener(OnVoiceSeekBarChangeListener);
         sb_video.setOnSeekBarChangeListener(mOnVideoSeekBarChangeListener);
         gestureDetector = new GestureDetector(this, mSimpleOnGestureListener);
@@ -241,6 +244,7 @@ public class VideoPlayerActivity extends BaseActivity {
 
 
     }
+
 
     /**
      * 视频播放完会回调这个监听器
@@ -293,7 +297,7 @@ public class VideoPlayerActivity extends BaseActivity {
         if(videoUri != null){
             //不为空说明是从第三方跳转过来的
             videoView.setVideoURI(videoUri);
-            ll_loading.setVisibility(View.VISIBLE);
+            showLoading();
             btn_pre.setEnabled(false);
             btn_next.setEnabled(false);
 
@@ -313,7 +317,7 @@ public class VideoPlayerActivity extends BaseActivity {
             return ;
         }
 
-        ll_loading.setVisibility(View.VISIBLE);
+        showLoading();
         btn_pre.setEnabled(currentPosition !=0);
         btn_next.setEnabled(currentPosition != videoItems.size()-1);
 
@@ -596,6 +600,44 @@ public class VideoPlayerActivity extends BaseActivity {
                 Utils.formatMilliSeconds(videoView.getCurrentPosition()));
         sb_video.setProgress(videoView.getCurrentPosition());
         handler.sendEmptyMessageDelayed(UPDATE_PLAY_PROGRESS, MILLISECOND_100<<2);
+    }
+    MediaPlayer.OnBufferingUpdateListener mOnBufferingUpdateListener = new MediaPlayer.OnBufferingUpdateListener() {
+        @Override
+        public void onBufferingUpdate(MediaPlayer mp, int percent) {
+            updateVideoSecondaryProgress(percent);
+        }
+    };
+
+    /**
+     * 更新视频缓冲进度(也就是SeekBar中的Secondary进度，第二进度)
+     * @param percent   视频缓冲进度的百分比
+     */
+    private void updateVideoSecondaryProgress(int percent) {
+        float percentFloat = percent /100.0f;
+        int bufferingProgress = (int) (videoView.getDuration() * percentFloat);
+        sb_video.setSecondaryProgress(bufferingProgress);
+    }
+
+
+    MediaPlayer.OnInfoListener mOnInfoListener = new MediaPlayer.OnInfoListener() {
+        @Override
+        public boolean onInfo(MediaPlayer mp, int what, int extra) {
+
+            if(what == MediaPlayer.MEDIA_INFO_BUFFERING_START){
+                //视频卡顿， 正在缓冲
+                showLoading();
+                return true;
+            }else if(what == MediaPlayer.MEDIA_INFO_BUFFERING_END){
+                hideLoading();
+                return true;
+            }
+            return false;
+        }
+    };
+
+    /** 显示Loading加载Logo*/
+    private void showLoading() {
+        ll_loading.setVisibility(View.VISIBLE);
     }
 
 
